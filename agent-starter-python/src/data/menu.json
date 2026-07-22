@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Chicken Biryani",
+    "category": "Main Course",
+    "price": 1450,
+    "description": "Traditional chicken biryani served with raita."
+  },
+  {
+    "name": "Chicken Karahi",
+    "category": "Main Course",
+    "price": 2200,
+    "description": "Half chicken karahi cooked with tomatoes and spices."
+  },
+  {
+    "name": "Seekh Kebab",
+    "category": "BBQ",
+    "price": 950,
+    "description": "Two beef seekh kebabs."
+  }
+]
