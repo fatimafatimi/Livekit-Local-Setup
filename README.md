@@ -81,12 +81,12 @@ Open additional WSL terminals for the other services:
 ```bash
 cd /mnt/d/dummy/agent-starter-python
 uv sync
-uv run python main.py
+uv run uvicorn app:app --reload
 ```
 
 ```bash
 cd /mnt/d/dummy/agent-starter-python
-uv run python src/agent.py dev
+uv run python src.agent.py dev
 ```
 
 ```bash
