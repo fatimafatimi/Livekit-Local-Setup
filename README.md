@@ -66,6 +66,40 @@ Ensure you have the following installed on your machine:
 
 Follow these steps exactly, from start to finish:
 
+## 🐧 Running in WSL
+If you're using WSL, run the app from the mounted workspace path and start the LiveKit server through PowerShell because the bundled server binary is a Windows executable.
+
+```bash
+cd /mnt/d/dummy
+
+# Start LiveKit from WSL using PowerShell
+powershell.exe -Command "Set-Location 'D:\\dummy\\livekit-server-v1.13.4'; .\\livekit-server.exe --dev"
+```
+
+Open additional WSL terminals for the other services:
+
+```bash
+cd /mnt/d/dummy/agent-starter-python
+uv sync
+uv run python main.py
+```
+
+```bash
+cd /mnt/d/dummy/agent-starter-python
+uv run python src/agent.py dev
+```
+
+```bash
+cd /mnt/d/dummy/restaurant-client
+npm install
+npm run dev
+```
+
+Then open http://localhost:5173 in your browser.
+
+> If the LiveKit process does not start from WSL, launch it from a Windows PowerShell terminal instead and leave it running while you use the app.
+
+
 ### Step 1: Start the Local LiveKit Server
 The project includes a pre-packaged Windows binary for LiveKit Server.
 1. Open a terminal and navigate to the server folder:
