@@ -1,8 +1,6 @@
-from pathlib import Path
-
-KB_FILE = Path(__file__).parent.parent / "data" / "knowledge_base.md"
+from ..supabase_loader import load_agent_config
 
 
 def get_knowledge_base() -> str:
-    with open(KB_FILE, encoding="utf-8") as f:
-        return f.read()
+    config = load_agent_config("Monal")
+    return config["Knowledge_base"]
