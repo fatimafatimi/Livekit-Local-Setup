@@ -19,6 +19,7 @@ dependencies = [
     "livekit-plugins-silero",
     "livekit-plugins-xai>=1.6.6",
     "python-dotenv",
+    "simple-salesforce>=1.12.10",
     "supabase>=2.31.0",
     "uvicorn>=0.51.0",
 ]

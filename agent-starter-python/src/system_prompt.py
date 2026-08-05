@@ -7,6 +7,7 @@ from .supabase_loader import load_agent_config
 from .tools.time_tool import get_current_time
 from .tools.menu_tool import get_menu_item
 from .tools.kb_tool import search_knowledge_base
+from .tools.salesforce_lead import create_salesforce_lead
 
 logger = logging.getLogger(__name__)
 
@@ -39,5 +40,6 @@ class Assistant(Agent):
                 get_current_time,
                 get_menu_item,
                 search_knowledge_base,
+                create_salesforce_lead,
             ],
         )
