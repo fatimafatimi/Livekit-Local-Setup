@@ -8,6 +8,7 @@ from .tools.time_tool import get_current_time
 from .tools.menu_tool import get_menu_item
 from .tools.kb_tool import search_knowledge_base
 from .tools.salesforce_lead import create_salesforce_lead
+from .tools.odoo_lead import create_odoo_lead
 
 logger = logging.getLogger(__name__)
 
@@ -41,5 +42,6 @@ class Assistant(Agent):
                 get_menu_item,
                 search_knowledge_base,
                 create_salesforce_lead,
+                create_odoo_lead,
             ],
         )
