@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Restaurant Agent",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "src.agent",
+            "args": ["dev"],
+            "cwd": "${workspaceFolder}/agent-starter-python",
+            "envFile": "${workspaceFolder}/agent-starter-python/.env",
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ]
+}
