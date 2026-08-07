@@ -18,6 +18,7 @@ from livekit.plugins import (
     deepgram,
     cartesia,
     groq,
+    # google,
     ai_coustics,
     silero,
 )
@@ -84,6 +85,10 @@ async def restaurant_agent(ctx: JobContext):
         llm=groq.LLM(
             model="qwen/qwen3.6-27b"
         ),
+        # llm=google.LLM(
+        #     model="gemini-2.0-flash",
+        #     api_key=os.getenv("GEMINI_API_KEY")
+        # ),
 
 
         # Voice Activity Detection (VAD)
