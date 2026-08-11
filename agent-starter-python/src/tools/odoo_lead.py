@@ -172,10 +172,11 @@ async def create_sales_order(
     customer_name: str, 
     phone: str, 
     product_name: str, 
-    quantity: int
+    quantity: int,
+    email: str = None
 ) -> str:
-    """Creates a customer, an order, and an order line in Odoo."""
-    print(f"\n[TOOL CALLED] Creating Order for {customer_name} - {quantity}x {product_name}")
+    """Creates a customer, an order, and an order line in Odoo, confirms the order, invoices it, and emails the invoice."""
+    print(f"\n[TOOL CALLED] Creating Order for {customer_name} ({email or 'no email'}) - {quantity}x {product_name}")
 
     def _create_order():
         uid, models = get_odoo_client()
@@ -191,9 +192,12 @@ async def create_sales_order(
         product_id = products[0]['id']
 
         # 2. Create the Customer in res.partner
+        partner_data = {'name': customer_name, 'phone': phone}
+        if email:
+            partner_data['email'] = email
         partner_id = models.execute_kw(
             ODOO_DB, uid, ODOO_API_KEY, 'res.partner', 'create', 
-            [{'name': customer_name, 'phone': phone}]
+            [partner_data]
         )
 
         # 3. Create the empty Sales Order in sale.order
@@ -211,7 +215,78 @@ async def create_sales_order(
                 'product_uom_qty': quantity
             }]
         )
-        return f"Order successfully created! Your reference ID is {order_id}"
+
+        # 5. Confirm Sale Order
+        models.execute_kw(
+            ODOO_DB, uid, ODOO_API_KEY, 'sale.order', 'action_confirm',
+            [[order_id]]
+        )
+
+        # 6. Create Invoice using wizard (handling XML-RPC serialization limitation for None values)
+        wizard_context = {
+            'active_model': 'sale.order',
+            'active_ids': [order_id],
+            'active_id': order_id
+        }
+        wizard_id = models.execute_kw(
+            ODOO_DB, uid, ODOO_API_KEY, 'sale.advance.payment.inv', 'create',
+            [{'advance_payment_method': 'delivered'}],
+            {'context': wizard_context}
+        )
+        try:
+            models.execute_kw(
+                ODOO_DB, uid, ODOO_API_KEY, 'sale.advance.payment.inv', 'create_invoices',
+                [[wizard_id]],
+                {'context': wizard_context}
+            )
+        except xmlrpc.client.Fault as e:
+            # We catch the XML-RPC Fault since Odoo executes the action successfully but might fail to marshal None returned fields.
+            print(f"[Odoo Wizard Warning] Handled serialization fault: {e}")
+
+        # 7. Post the Invoice
+        orders = models.execute_kw(
+            ODOO_DB, uid, ODOO_API_KEY, 'sale.order', 'read',
+            [[order_id]],
+            {'fields': ['invoice_ids']}
+        )
+        invoice_ids = orders[0].get('invoice_ids', [])
+        
+        email_status = "No invoice created to email."
+        if invoice_ids:
+            invoice_id = invoice_ids[0]
+            # Post the invoice
+            models.execute_kw(
+                ODOO_DB, uid, ODOO_API_KEY, 'account.move', 'action_post',
+                [[invoice_id]]
+            )
+            
+            # 8. Send the Invoice Email using template
+            templates = models.execute_kw(
+                ODOO_DB, uid, ODOO_API_KEY, 'mail.template', 'search_read',
+                [[['model', '=', 'account.move']]],
+                {'fields': ['id', 'name']}
+            )
+            
+            template_id = None
+            for t in templates:
+                if 'invoice' in t['name'].lower():
+                    template_id = t['id']
+                    break
+            
+            if not template_id and templates:
+                template_id = templates[0]['id']
+                
+            if template_id:
+                models.execute_kw(
+                    ODOO_DB, uid, ODOO_API_KEY, 'mail.template', 'send_mail',
+                    [template_id, invoice_id],
+                    {'force_send': True}
+                )
+                email_status = f"Email sent successfully using template ID {template_id}."
+            else:
+                email_status = "No email template found for invoice."
+
+        return f"Order successfully created, confirmed, invoiced, and processed! Reference ID: {order_id}. Invoice IDs: {invoice_ids}. {email_status}"
         
     try:
         result = await asyncio.to_thread(_create_order)
@@ -219,4 +294,4 @@ async def create_sales_order(
         return result
     except Exception as e:
         print(f"[TOOL ERROR] {e}")
-        return f"Error creating order: {e}"
+        return f"Error creating and processing order: {e}"
