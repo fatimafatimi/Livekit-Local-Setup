@@ -8,10 +8,16 @@ from .tools.time_tool import get_current_time
 from .tools.menu_tool import get_menu_item
 from .tools.kb_tool import search_knowledge_base
 from .tools.salesforce_lead import create_salesforce_lead
-from .tools.odoo_lead import create_odoo_lead, get_product_price, create_sales_order
+# from .tools.odoo_lead import create_odoo_lead, get_product_price, create_sales_order
 from .tools.shopify_customer import create_shopify_customer
 # from .tools.salesforce_lead import create_salesforce_lead
-from .tools.odoo_lead import create_odoo_lead
+# from .tools.odoo_lead import create_odoo_lead
+from .tools.shopify import (
+    #get_product_catalog,
+    get_product_price,
+    create_sales_order,
+    #get_customer_orders,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -28,10 +34,9 @@ class Assistant(Agent):
 
                 # Knowledge Base
 
-                {config["Knowledge_base"]}
                 """
             )
-
+# {config["Knowledge_base"]}
             logger.info("Successfully loaded system prompt and knowledge base from Supabase.")
 
         except Exception as e:
@@ -45,9 +50,13 @@ class Assistant(Agent):
                 get_menu_item,
                 search_knowledge_base,
                 #create_salesforce_lead,
-                create_odoo_lead,
+                #create_odoo_lead,
+                #get_product_price,
+                #create_sales_order,
+                create_shopify_customer,
+                #get_product_catalog,
                 get_product_price,
                 create_sales_order,
-                create_shopify_customer,
+                #get_customer_orders,
             ],
         )

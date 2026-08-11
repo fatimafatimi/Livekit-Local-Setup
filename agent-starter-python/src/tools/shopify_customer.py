@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 # Retrieve environment variables
 SHOPIFY_STORE_URL = os.getenv("SHOPIFY_STORE_URL")
-SHOPIFY_ACCESS_TOKEN = os.getenv("SHOPIFY_ACCESS_TOKEN") or os.getenv("SHOPIFY_ACESS_TOKEN")
+SHOPIFY_ACCESS_TOKEN = os.getenv("SHOPIFY_ACCESS_TOKEN") or os.getenv("SHOPIFY_ACCESS_TOKEN")
 
 @function_tool(
     description="""
@@ -69,6 +69,41 @@ async def create_shopify_customer(
     # We clean up empty phone so it doesn't cause issues if not provided
     if not payload["customer"]["phone"]:
         payload["customer"].pop("phone")
+
+    # Check if a customer already exists by email or phone
+    search_queries = []
+    if email.strip():
+        search_queries.append(f'email:"{email.strip()}"')
+    if phone.strip():
+        clean_phone = "".join(c for c in phone if c.isdigit() or c == "+")
+        search_queries.append(f'phone:"{clean_phone}"')
+        if phone.strip() != clean_phone:
+            search_queries.append(f'phone:"{phone.strip()}"')
+
+    if search_queries:
+        query_str = " OR ".join(search_queries)
+        search_endpoint = f"{shopify_url}/customers/search.json"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(search_endpoint, headers=headers, params={"query": query_str}) as response:
+                    if response.status == 200:
+                        search_data = await response.json()
+                        existing_customers = search_data.get("customers", [])
+                        if existing_customers:
+                            cust = existing_customers[0]
+                            existing_id = cust.get("id")
+                            first_name = cust.get("first_name") or ""
+                            last_name = cust.get("last_name") or ""
+                            c_email = cust.get("email") or "N/A"
+                            c_phone = cust.get("phone") or "N/A"
+                            details = f"Name: {first_name} {last_name}, Phone: {c_phone}, Email: {c_email}"
+                            logger.info(f"Found existing customer with ID: {existing_id}")
+                            return f"Customer already exists. Retrieved Customer ID is {existing_id}. Registered details: {details}."
+                    else:
+                        search_error = await response.text()
+                        logger.warning(f"Shopify customer search returned status {response.status}: {search_error}")
+        except Exception as e:
+            logger.warning(f"Error checking for existing customer: {e}")
 
     try:
         async with aiohttp.ClientSession() as session:
