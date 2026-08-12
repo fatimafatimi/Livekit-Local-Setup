@@ -1,22 +1,19 @@
 import logging
 import textwrap
-
 from livekit.agents import Agent, inference
-
 from .supabase_loader import load_agent_config
 from .tools.time_tool import get_current_time
 from .tools.menu_tool import get_menu_item
 from .tools.kb_tool import search_knowledge_base
 from .tools.salesforce_lead import create_salesforce_lead
-# from .tools.odoo_lead import create_odoo_lead, get_product_price, create_sales_order
+
+# You have to comment one of these (oddo, shopify (as these 2 functions get_product_price and create_sales_order) are the same in the name for both)
+
+from .tools.odoo_lead import create_odoo_lead, get_product_price, create_sales_order
 from .tools.shopify_customer import create_shopify_customer
-# from .tools.salesforce_lead import create_salesforce_lead
-# from .tools.odoo_lead import create_odoo_lead
 from .tools.shopify import (
-    #get_product_catalog,
     get_product_price,
     create_sales_order,
-    #get_customer_orders,
 )
 
 logger = logging.getLogger(__name__)
@@ -49,14 +46,10 @@ class Assistant(Agent):
                 get_current_time,
                 get_menu_item,
                 search_knowledge_base,
-                #create_salesforce_lead,
-                #create_odoo_lead,
-                #get_product_price,
-                #create_sales_order,
                 create_shopify_customer,
-                #get_product_catalog,
                 get_product_price,
                 create_sales_order,
-                #get_customer_orders,
+                create_salesforce_lead,
+                create_odoo_lead,
             ],
         )
