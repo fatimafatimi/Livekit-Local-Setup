@@ -4,13 +4,17 @@
 
 # LiveKit Agents Starter - Python
 
-A complete starter project for building voice AI apps with [LiveKit Agents for Python](https://github.com/livekit/agents) and [LiveKit Cloud](https://cloud.livekit.io/).
+A complete starter project for building voice AI apps with [LiveKit Agents for Python](https://github.com/livekit/agents) and [LiveKit Cloud](https://cloud.livekit.io/) (or self-hosted LiveKit Local Server).
 
 The starter project includes:
 
-- A simple voice AI assistant, ready for extension and customization
-- A voice AI pipeline built on [LiveKit Inference](https://docs.livekit.io/agents/models/inference)
-  with [models](https://docs.livekit.io/agents/models) from OpenAI, Cartesia, and Deepgram. More than 50 other model providers are supported, including [Realtime models](https://docs.livekit.io/agents/models/realtime)
+- **Dynamic Config Loader**: Integrates with **Supabase** database to dynamically fetch agent system prompts and settings.
+- **Groq LLM Support**: Configured to run fast reasoning using Groq API (e.g. `qwen/qwen3.6-27b`).
+- **STT & TTS**: Runs Deepgram STT (`nova-3` multilingual model) and Cartesia TTS (`sonic-3`).
+- **ERP, CRM & E-Commerce Integration Tools**:
+  - **Odoo ERP**: Tools for lead creation, querying product prices, and creating/confirming sales orders (including auto-generating and emailing invoices).
+  - **Salesforce CRM**: Leads creation for booking/reservations.
+  - **Shopify**: Custom Shopify customer registration, product price lookups, and order placements.
 - Eval suite based on the LiveKit Agents [testing & evaluation framework](https://docs.livekit.io/agents/start/testing/)
 - [LiveKit Turn Detector](https://docs.livekit.io/agents/logic/turns/turn-detector/), an end-of-turn model that listens to the user's audio directly, combining semantic understanding with acoustic cues for state-of-the-art accuracy across 14 languages
 - [Background voice cancellation](https://docs.livekit.io/transport/media/noise-cancellation/)
@@ -18,6 +22,7 @@ The starter project includes:
 - A Dockerfile ready for [production deployment to LiveKit Cloud](https://docs.livekit.io/deploy/agents/)
 
 This starter app is compatible with any [custom web/mobile frontend](https://docs.livekit.io/frontends/) or [telephony](https://docs.livekit.io/telephony/).
+
 
 ## Using coding agents
 
