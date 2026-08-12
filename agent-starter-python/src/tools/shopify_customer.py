@@ -1,331 +1,122 @@
 import os
-import asyncio
-import requests
-
-from dotenv import load_dotenv
+import logging
+import aiohttp
 from livekit.agents import RunContext
 from livekit.agents.llm import function_tool
 
-load_dotenv()
+logger = logging.getLogger(__name__)
 
-# ============================================================
-# Shopify Configuration
-# ============================================================
-
-SHOPIFY_STORE_DOMAIN = os.getenv("SHOPIFY_STORE_DOMAIN")
-SHOPIFY_CLIENT_ID = os.getenv("SHOPIFY_CLIENT_ID")
-SHOPIFY_CLIENT_SECRET = os.getenv("SHOPIFY_CLIENT_SECRET")
-SHOPIFY_REFRESH_TOKEN = os.getenv("SHOPIFY_REFRESH_TOKEN")
-
-SHOPIFY_API_VERSION = os.getenv(
-    "SHOPIFY_API_VERSION",
-    "2026-07"
-)
-
-
-# ============================================================
-# Get Shopify Access Token
-# ============================================================
-
-def get_shopify_access_token() -> str:
-    response = requests.post(
-        f"https://{SHOPIFY_STORE_DOMAIN}/admin/oauth/access_token",
-        data={
-            "grant_type": "client_credentials",
-            "client_id": SHOPIFY_CLIENT_ID,
-            "client_secret": SHOPIFY_CLIENT_SECRET,
-        },
-        headers={
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Accept": "application/json",
-        },
-        timeout=30,
-    )
-
-    if response.status_code != 200:
-        raise Exception(
-            f"Shopify authentication failed: "
-            f"{response.status_code} {response.text}"
-        )
-
-    data = response.json()
-
-    return data["access_token"]
-
-# ============================================================
-# Shopify GraphQL Request
-# ============================================================
-
-def shopify_graphql(
-    access_token: str,
-    query: str,
-    variables: dict,
-) -> dict:
-    """
-    Sends a GraphQL request to Shopify Admin API.
-    """
-
-    url = (
-        f"https://{SHOPIFY_STORE_DOMAIN}"
-        f"/admin/api/{SHOPIFY_API_VERSION}/graphql.json"
-    )
-
-    headers = {
-        "X-Shopify-Access-Token": access_token,
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-    }
-
-    response = requests.post(
-        url,
-        headers=headers,
-        json={
-            "query": query,
-            "variables": variables,
-        },
-        timeout=30,
-    )
-
-    print("Shopify GraphQL Status:", response.status_code)
-
-    if response.status_code != 200:
-        raise Exception(
-            f"Shopify API request failed.\n"
-            f"Status Code: {response.status_code}\n"
-            f"Response: {response.text}"
-        )
-
-    result = response.json()
-
-    if result.get("errors"):
-        raise Exception(
-            f"Shopify GraphQL errors:\n"
-            f"{result['errors']}"
-        )
-
-    return result
-
-
-# ============================================================
-# Create Shopify Customer
-# ============================================================
-
-def _create_shopify_customer(
-    name: str,
-    email: str,
-    phone: str,
-    reservation_date: str,
-    reservation_time: str,
-    guests: int,
-    notes: str,
-):
-    """
-    Creates a Shopify customer containing
-    the restaurant reservation information.
-    """
-
-    print("\n==============================")
-    print("Creating Shopify Customer...")
-    print("==============================")
-
-    access_token = get_shopify_access_token()
-
-    customer_name = name.strip() if name else "Unknown"
-
-    # --------------------------------------------------------
-    # Split customer name
-    # --------------------------------------------------------
-
-    if " " in customer_name:
-        first_name = customer_name.split()[0]
-        last_name = " ".join(customer_name.split()[1:])
-    else:
-        first_name = customer_name
-        last_name = ""
-
-    # --------------------------------------------------------
-    # Shopify GraphQL mutation
-    # --------------------------------------------------------
-
-    mutation = """
-    mutation customerCreate($input: CustomerInput!) {
-        customerCreate(input: $input) {
-            customer {
-                id
-                firstName
-                lastName
-                email
-                phone
-            }
-            userErrors {
-                field
-                message
-            }
-        }
-    }
-    """
-
-    # --------------------------------------------------------
-    # Put reservation information in customer note
-    # --------------------------------------------------------
-
-    customer_note = (
-        "Monal Restaurant Reservation\n"
-        f"Reservation Date: {reservation_date}\n"
-        f"Reservation Time: {reservation_time}\n"
-        f"Guests: {guests}\n"
-        f"Notes: {notes}"
-    )
-
-    customer_input = {
-        "firstName": first_name,
-        "lastName": last_name,
-        "email": email if email else None,
-        "phone": phone if phone else None,
-        "note": customer_note,
-    }
-
-    # Remove fields with None values
-    customer_input = {
-        key: value
-        for key, value in customer_input.items()
-        if value is not None
-    }
-
-    print("Customer Data:")
-    print(customer_input)
-
-    result = shopify_graphql(
-        access_token,
-        mutation,
-        {
-            "input": customer_input
-        },
-    )
-
-    customer_data = result["data"]["customerCreate"]
-
-    # --------------------------------------------------------
-    # Check Shopify user errors
-    # --------------------------------------------------------
-
-    user_errors = customer_data.get("userErrors", [])
-
-    if user_errors:
-        raise Exception(
-            f"Shopify customer creation failed: "
-            f"{user_errors}"
-        )
-
-    customer = customer_data.get("customer")
-
-    if not customer:
-        raise Exception(
-            "Shopify did not return a customer."
-        )
-
-    print("\nShopify Customer Response:")
-    print(customer)
-
-    print("\n✅ Shopify Customer Created!")
-    print(f"Customer ID: {customer['id']}")
-
-    return customer
-
-
-# ============================================================
-# LiveKit Tool: Create Shopify Customer
-# ============================================================
+# Retrieve environment variables
+SHOPIFY_STORE_URL = os.getenv("SHOPIFY_STORE_URL")
+SHOPIFY_ACCESS_TOKEN = os.getenv("SHOPIFY_ACCESS_TOKEN") or os.getenv("SHOPIFY_ACCESS_TOKEN")
 
 @function_tool(
     description="""
-Create a Shopify customer after completing a Monal restaurant reservation.
+Create a new customer profile in Shopify using their contact details.
 
 Use:
-
-- name:
-  Customer full name.
-  Use "Unknown" if unavailable.
-
-- email:
-  Customer email.
-  Use an empty string if unavailable.
-
-- phone:
-  Customer phone number.
-  Use an empty string if unavailable.
-
-- reservation_date:
-  Customer reservation date.
-
-- reservation_time:
-  Customer reservation time.
-
-- guests:
-  Number of guests.
-
-- notes:
-  Short summary of the reservation and any important
-  customer information.
-
-Call this tool after the reservation has been successfully completed.
+- first_name: Customer's first name
+- last_name: Customer's last name
+- email: Customer's email address
+- phone: Customer's phone number (optional)
 """
 )
 async def create_shopify_customer(
     context: RunContext,
-    name: str,
+    first_name: str,
+    last_name: str,
     email: str,
-    phone: str,
-    reservation_date: str,
-    reservation_time: str,
-    guests: int,
-    notes: str,
+    phone: str = "",
 ) -> str:
-
+    """Adds a brand new customer to the Shopify store database."""
     print("\n==============================")
-    print("🚀 SHOPIFY TOOL CALLED")
+    print("SHOPIFY TOOL CALLED")
     print("==============================")
-
-    print(f"Name              : {name}")
-    print(f"Email             : {email}")
-    print(f"Phone             : {phone}")
-    print(f"Reservation Date  : {reservation_date}")
-    print(f"Reservation Time  : {reservation_time}")
-    print(f"Guests            : {guests}")
-    print(f"Notes             : {notes}")
-
+    print(f"First Name: {first_name}")
+    print(f"Last Name : {last_name}")
+    print(f"Email     : {email}")
+    print(f"Phone     : {phone}")
     print("==============================\n")
 
+    if not SHOPIFY_STORE_URL or not SHOPIFY_ACCESS_TOKEN:
+        logger.error("Missing Shopify configuration in environment variables.")
+        return "Failed to create customer. Shopify environment variables are not configured."
+
+    # Formulate shopify_url correctly
+    store_host = SHOPIFY_STORE_URL.strip()
+    if not store_host.startswith("http"):
+        shopify_url = f"https://{store_host}/admin/api/2024-04"
+    else:
+        shopify_url = f"{store_host}/admin/api/2024-04"
+
+    endpoint = f"{shopify_url}/customers.json"
+    
+    headers = {
+        "X-Shopify-Access-Token": SHOPIFY_ACCESS_TOKEN,
+        "Content-Type": "application/json"
+    }
+
+    # Structure the payload exactly as Shopify's API requires
+    payload = {
+        "customer": {
+            "first_name": first_name.strip(),
+            "last_name": last_name.strip(),
+            "email": email.strip(),
+            "phone": phone.strip() if phone else ""
+        }
+    }
+    
+    # We clean up empty phone so it doesn't cause issues if not provided
+    if not payload["customer"]["phone"]:
+        payload["customer"].pop("phone")
+
+    # Check if a customer already exists by email or phone
+    search_queries = []
+    if email.strip():
+        search_queries.append(f'email:"{email.strip()}"')
+    if phone.strip():
+        clean_phone = "".join(c for c in phone if c.isdigit() or c == "+")
+        search_queries.append(f'phone:"{clean_phone}"')
+        if phone.strip() != clean_phone:
+            search_queries.append(f'phone:"{phone.strip()}"')
+
+    if search_queries:
+        query_str = " OR ".join(search_queries)
+        search_endpoint = f"{shopify_url}/customers/search.json"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(search_endpoint, headers=headers, params={"query": query_str}) as response:
+                    if response.status == 200:
+                        search_data = await response.json()
+                        existing_customers = search_data.get("customers", [])
+                        if existing_customers:
+                            cust = existing_customers[0]
+                            existing_id = cust.get("id")
+                            first_name = cust.get("first_name") or ""
+                            last_name = cust.get("last_name") or ""
+                            c_email = cust.get("email") or "N/A"
+                            c_phone = cust.get("phone") or "N/A"
+                            details = f"Name: {first_name} {last_name}, Phone: {c_phone}, Email: {c_email}"
+                            logger.info(f"Found existing customer with ID: {existing_id}")
+                            return f"Customer already exists. Retrieved Customer ID is {existing_id}. Registered details: {details}."
+                    else:
+                        search_error = await response.text()
+                        logger.warning(f"Shopify customer search returned status {response.status}: {search_error}")
+        except Exception as e:
+            logger.warning(f"Error checking for existing customer: {e}")
+
     try:
-
-        customer = await asyncio.to_thread(
-            _create_shopify_customer,
-            name,
-            email,
-            phone,
-            reservation_date,
-            reservation_time,
-            guests,
-            notes,
-        )
-
-        customer_id = customer.get("id")
-
-        print("\n✅ Shopify customer successfully created!")
-        print(f"Customer ID: {customer_id}")
-
-        return (
-            "Shopify customer created successfully. "
-            f"Customer ID: {customer_id}"
-        )
-
+        async with aiohttp.ClientSession() as session:
+            async with session.post(endpoint, headers=headers, json=payload) as response:
+                if response.status == 201:  # 201 means "Created"
+                    data = await response.json()
+                    new_id = data.get("customer", {}).get("id")
+                    logger.info(f"Successfully created Shopify customer: {new_id}")
+                    return f"Successfully created new customer {first_name} {last_name} in Shopify. New Customer ID is {new_id}."
+                
+                error_data = await response.text()
+                logger.error(f"Shopify API Error: Status {response.status}, Details: {error_data}")
+                return f"Failed to create customer. API status: {response.status}. Details: {error_data}"
     except Exception as e:
-
-        print("\n❌ ERROR CREATING SHOPIFY CUSTOMER")
-        print(type(e).__name__)
-        print(e)
-
-        return (
-            "Failed to create Shopify customer.\n"
-            f"{type(e).__name__}: {e}"
-        )
+        logger.exception("Exception occurred while calling Shopify API")
+        return f"Failed to create Shopify customer due to an exception: {type(e).__name__}: {e}"
