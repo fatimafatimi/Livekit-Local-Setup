@@ -8,6 +8,10 @@ from .tools.time_tool import get_current_time
 from .tools.menu_tool import get_menu_item
 from .tools.kb_tool import search_knowledge_base
 from .tools.salesforce_lead import create_salesforce_lead
+from .tools.odoo_lead import create_odoo_lead, get_product_price, create_sales_order
+# from .tools.shopify_customer import create_shopify_customer
+# from .tools.salesforce_lead import create_salesforce_lead
+from .tools.odoo_lead import create_odoo_lead
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +20,7 @@ class Assistant(Agent):
     def __init__(self):
         try:
             # Load configuration from Supabase
-            config = load_agent_config("Monal")
+            config = load_agent_config("Achha Foods")
 
             instructions = textwrap.dedent(
                 f"""
@@ -40,6 +44,10 @@ class Assistant(Agent):
                 get_current_time,
                 get_menu_item,
                 search_knowledge_base,
-                create_salesforce_lead,
+                #create_salesforce_lead,
+                create_odoo_lead,
+                get_product_price,
+                create_sales_order,
+                # create_shopify_customer,
             ],
         )
